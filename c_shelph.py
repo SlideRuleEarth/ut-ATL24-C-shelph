@@ -16,6 +16,8 @@ def bin_data(dataset, lat_res, height_res):
     
     # Duplicate dataframe
     dataset1 = dataset
+
+    pd.options.mode.chained_assignment = None 
     
     # Cut lat bins
     lat_bins = pd.cut(dataset['latitude'], lat_bin_number, labels = np.array(range(lat_bin_number)))
@@ -23,10 +25,10 @@ def bin_data(dataset, lat_res, height_res):
     # Add bins to dataframe
     dataset1['lat_bins'] = lat_bins
 
-    dataset1['median_sea_surf'] = dataset1.groupby('lat_bins')['photon_height'].transform('median')
+    dataset1['median_sea_surf'] = dataset1.groupby('lat_bins', observed=True)['photon_height'].transform('median')
     dataset1['median_sea_surf'] = dataset1['median_sea_surf'].fillna(dataset1['median_sea_surf'].median())
 
-    pd.options.mode.chained_assignment = None 
+    
     # Cut height bins
     height_bins = pd.cut(dataset['photon_height'],
                          height_bin_number,
@@ -34,7 +36,7 @@ def bin_data(dataset, lat_res, height_res):
                                                        dataset['photon_height'].max(),
                                                        num=height_bin_number), decimals = 1))
     
-    pd.options.mode.chained_assignment = 'warn' 
+    # pd.options.mode.chained_assignment = None 
     # Add height bins to dataframe
     dataset1['height_bins'] = height_bins
     dataset1 = dataset1.reset_index(drop=True)
@@ -58,19 +60,26 @@ def get_bath_height(binned_data, percentile, height_resolution, min_photons_per_
     geo_photon_height = []
     geo_longitude = []
     geo_latitude = []
+
+
+    global_median_sea_surf = binned_data['median_sea_surf'].median()
     
     # Group data by latitude
     # Filter out surface data that are two bins below median surface value calculated above
     binned_data_bathy_list = []
-    for group in binned_data.groupby(['lat_bins']):
+    for group in binned_data.groupby(['lat_bins'], observed=True):
 
         med_sea_surf_group = group[1]['median_sea_surf'].median()
+
+        if np.isnan(med_sea_surf_group):
+            med_sea_surf_group = global_median_sea_surf
+
         binned_data_bath = group[1][(group[1]['photon_height'] < med_sea_surf_group - (height_resolution * 2))]
         binned_data_bathy_list.append(binned_data_bath)
 
     binned_data_bath = pd.concat(binned_data_bathy_list)
 
-    grouped_data = binned_data_bath.groupby(['lat_bins'], group_keys=True)
+    grouped_data = binned_data_bath.groupby(['lat_bins'], group_keys=True, observed=True)
     data_groups = dict(list(grouped_data))
 
     # Create a percentile threshold of photon counts in each grid, grouped by both x and y axes.
