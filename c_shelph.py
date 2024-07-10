@@ -1,6 +1,4 @@
 import numpy as np
-import datetime
-import traceback
 import pandas as pd
 import copy
 
@@ -185,7 +183,7 @@ def c_shelph_classification(point_cloud, surface_buffer=-0.5,
                                 'temp_index': np.arange(0, (point_cloud.shape[0]), 1),
                                 'latitude': point_cloud['latitude'].values,
                                 'longitude': point_cloud['longitude'].values,
-                                'photon_height': point_cloud['geoid_corr_h'],
+                                'photon_height': point_cloud['ortho_h'],
                                 'classifications': class_arr},
                            columns=['index_ph', 'temp_index', 'latitude', 'longitude', 'photon_height', 'classifications'])
     
@@ -214,7 +212,7 @@ def c_shelph_classification(point_cloud, surface_buffer=-0.5,
 
         med_water_surface = np.nanmean(geo_df['med_sea_surf'].to_numpy())
 
-        unique_bathy_filterlow = np.argwhere(point_cloud['geoid_corr_h'] > (med_water_surface - (h_res * 2.5))).flatten()
+        unique_bathy_filterlow = np.argwhere(point_cloud['ortho_h'] > (med_water_surface - (h_res * 2.5))).flatten()
         
         classifications[geo_df['PC_index'].to_numpy()] = bathymetry_label
         classifications[unique_bathy_filterlow] = 0
@@ -247,15 +245,15 @@ def plot_pointcloud(classified_pointcloud=None, output_path=None):
     plt.figure(figsize=(48, 16))
     
     plt.plot(classified_pointcloud['latitude'][classified_pointcloud['classifications'] == 0.0],
-                classified_pointcloud['geoid_corr_h'][classified_pointcloud['classifications'] == 0.0],
+                classified_pointcloud['ortho_h'][classified_pointcloud['classifications'] == 0.0],
                 'o', color='0.7', label='Other', markersize=2, zorder=1)
     
     plt.plot(classified_pointcloud['latitude'][classified_pointcloud['classifications'] == 41.0],
-                classified_pointcloud['geoid_corr_h'][classified_pointcloud['classifications'] == 41.0],
+                classified_pointcloud['ortho_h'][classified_pointcloud['classifications'] == 41.0],
                 'o', color='blue', label='Other', markersize=5, zorder=5)
     
     plt.plot(classified_pointcloud['latitude'][classified_pointcloud['classifications'] == 40.0],
-                classified_pointcloud['geoid_corr_h'][classified_pointcloud['classifications'] == 40.0],
+                classified_pointcloud['ortho_h'][classified_pointcloud['classifications'] == 40.0],
                 'o', color='red', label='Other', markersize=5, zorder=5)
 
 
@@ -292,7 +290,7 @@ def main(args):
                                               'ph_index': 'index_ph',
                                               'lat_ph': 'latitude',
                                               'lon_ph': 'longitude',
-                                              'geoid_corrected_h': 'geoid_corr_h'})
+                                              'geoid_corrected_h': 'ortho_h'})
 
     # Start Bathymetry Classification
     c_shelph_results = c_shelph_classification(copy.deepcopy(point_cloud), surface_buffer=-0.5,
@@ -317,9 +315,6 @@ if __name__=="__main__":
 
     import argparse
     import sys
-    import numpy as np
-    import traceback
-    import pandas as pd
 
     parser = argparse.ArgumentParser()
 
