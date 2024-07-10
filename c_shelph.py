@@ -3,7 +3,6 @@ import datetime
 import traceback
 import pandas as pd
 import copy
-import scipy
 
 
 def bin_data(dataset, lat_res, height_res):
