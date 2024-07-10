@@ -1,6 +1,4 @@
 import numpy as np
-import datetime
-import traceback
 import pandas as pd
 import copy
 
@@ -317,9 +315,6 @@ if __name__=="__main__":
 
     import argparse
     import sys
-    import numpy as np
-    import traceback
-    import pandas as pd
 
     parser = argparse.ArgumentParser()
 
