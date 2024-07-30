@@ -1,16 +1,13 @@
 import numpy as np
-import datetime
-import traceback
 import pandas as pd
 import copy
-import scipy
 
 
 def bin_data(dataset, lat_res, height_res):
     '''Bin data along vertical and horizontal scales for later segmentation'''
     
     # Calculate number of bins required both vertically and horizontally with resolution size
-    lat_bin_number = round(abs(dataset['latitude'].min() - dataset['latitude'].max())/lat_res)
+    lat_bin_number = round(abs(dataset['lat_ph'].min() - dataset['lat_ph'].max())/lat_res)
 
     height_bin_number = round(abs(dataset['photon_height'].min() - dataset['photon_height'].max())/height_res)
     
@@ -20,7 +17,7 @@ def bin_data(dataset, lat_res, height_res):
     pd.options.mode.chained_assignment = None 
     
     # Cut lat bins
-    lat_bins = pd.cut(dataset['latitude'], lat_bin_number, labels = np.array(range(lat_bin_number)))
+    lat_bins = pd.cut(dataset['lat_ph'], lat_bin_number, labels = np.array(range(lat_bin_number)))
     
     # Add bins to dataframe
     dataset1['lat_bins'] = lat_bins
@@ -95,10 +92,10 @@ def get_bath_height(binned_data, percentile, height_resolution, min_photons_per_
         
         if not new_df.empty:
 
-            bath_bin = new_df['latitude'].argmax()
+            bath_bin = new_df['lat_ph'].argmax()
             bath_bin_h = new_df.index[bath_bin]
 
-            counts_in_bins.append(new_df.iloc[bath_bin]['latitude'])
+            counts_in_bins.append(new_df.iloc[bath_bin]['lat_ph'])
 
     counts_in_bins = np.asarray(counts_in_bins)
 
@@ -128,15 +125,15 @@ def get_bath_height(binned_data, percentile, height_resolution, min_photons_per_
 
         if not new_df.empty:
             # print('new_df: ', new_df)
-            bath_bin = new_df['latitude'].argmax()
+            bath_bin = new_df['lat_ph'].argmax()
             bath_bin_h = new_df.index[bath_bin]
             
             # Set threshold of photon counts per bin
-            if new_df.iloc[bath_bin]['latitude'] >= counts_in_bins_thresh:
+            if new_df.iloc[bath_bin]['lat_ph'] >= counts_in_bins_thresh:
                 
                 geo_photon_height.append(v.loc[v['height_bins']==bath_bin_h, 'photon_height'].values)
-                geo_longitude.append(v.loc[v['height_bins']==bath_bin_h, 'longitude'].values)
-                geo_latitude.append(v.loc[v['height_bins']==bath_bin_h, 'latitude'].values)
+                geo_longitude.append(v.loc[v['height_bins']==bath_bin_h, 'lon_ph'].values)
+                geo_latitude.append(v.loc[v['height_bins']==bath_bin_h, 'lat_ph'].values)
                 geo_index_ph.append(v.loc[v['height_bins']==bath_bin_h, 'index_ph'].values)
                 geo_temp_ind.append(v.loc[v['height_bins']==bath_bin_h, 'temp_index'].values)
                 geo_med_surf.append(v.loc[v['height_bins']==bath_bin_h, 'median_sea_surf'].values)
@@ -157,8 +154,8 @@ def get_bath_height(binned_data, percentile, height_resolution, min_photons_per_
         geo_photon_list = np.concatenate(geo_photon_height).ravel().tolist()
         
         # geo_depth = WSHeight - geo_photon_list
-        geo_df = pd.DataFrame({'index_ph': geo_index_ph_list, 'PC_index': geo_temp_ind_list,'longitude': geo_longitude_list,
-                            'latitude':geo_latitude_list, 'photon_height': geo_photon_list, 'med_sea_surf': geo_med_surf_list})
+        geo_df = pd.DataFrame({'index_ph': geo_index_ph_list, 'PC_index': geo_temp_ind_list,'lon_ph': geo_longitude_list,
+                            'lat_ph':geo_latitude_list, 'photon_height': geo_photon_list, 'med_sea_surf': geo_med_surf_list})
     
         del geo_longitude_list, geo_latitude_list, geo_photon_list
 
@@ -184,11 +181,11 @@ def c_shelph_classification(point_cloud, surface_buffer=-0.5,
     # Aggregate data into dataframe
     dataset_sea = pd.DataFrame({'index_ph': point_cloud['index_ph'].values,
                                 'temp_index': np.arange(0, (point_cloud.shape[0]), 1),
-                                'latitude': point_cloud['latitude'].values,
-                                'longitude': point_cloud['longitude'].values,
-                                'photon_height': point_cloud['geoid_corr_h'],
+                                'lat_ph': point_cloud['lat_ph'].values,
+                                'lon_ph': point_cloud['lon_ph'].values,
+                                'photon_height': point_cloud['ortho_h'],
                                 'classifications': class_arr},
-                           columns=['index_ph', 'temp_index', 'latitude', 'longitude', 'photon_height', 'classifications'])
+                           columns=['index_ph', 'temp_index', 'lat_ph', 'lon_ph', 'photon_height', 'classifications'])
     
     # Filter for elevation range
     dataset_sea1 = dataset_sea[(dataset_sea['photon_height'] > min_buffer) & (dataset_sea['photon_height'] < max_buffer)]
@@ -204,8 +201,8 @@ def c_shelph_classification(point_cloud, surface_buffer=-0.5,
     if geo_df is not None:
 
         # Remove Bathy points without seasurface above.
-        # sea_surf_lats = dataset_sea['latitude'][sea_surface_indices]
-        # bathy_keep = _array_for_loop(geo_df['latitude'].to_numpy(), surf_lats=sea_surf_lats)
+        # sea_surf_lats = dataset_sea['lat_ph'][sea_surface_indices]
+        # bathy_keep = _array_for_loop(geo_df['lat_ph'].to_numpy(), surf_lats=sea_surf_lats)
         # geo_df = geo_df[bathy_keep]
 
         classifications = np.zeros((point_cloud.shape[0]))
@@ -215,7 +212,7 @@ def c_shelph_classification(point_cloud, surface_buffer=-0.5,
 
         med_water_surface = np.nanmean(geo_df['med_sea_surf'].to_numpy())
 
-        unique_bathy_filterlow = np.argwhere(point_cloud['geoid_corr_h'] > (med_water_surface - (h_res * 2.5))).flatten()
+        unique_bathy_filterlow = np.argwhere(point_cloud['ortho_h'] > (med_water_surface - (h_res * 2.5))).flatten()
         
         classifications[geo_df['PC_index'].to_numpy()] = bathymetry_label
         classifications[unique_bathy_filterlow] = 0
@@ -247,16 +244,16 @@ def plot_pointcloud(classified_pointcloud=None, output_path=None):
 
     plt.figure(figsize=(48, 16))
     
-    plt.plot(classified_pointcloud['latitude'][classified_pointcloud['classifications'] == 0.0],
-                classified_pointcloud['geoid_corr_h'][classified_pointcloud['classifications'] == 0.0],
+    plt.plot(classified_pointcloud['lat_ph'][classified_pointcloud['classifications'] == 0.0],
+                classified_pointcloud['ortho_h'][classified_pointcloud['classifications'] == 0.0],
                 'o', color='0.7', label='Other', markersize=2, zorder=1)
     
-    plt.plot(classified_pointcloud['latitude'][classified_pointcloud['classifications'] == 41.0],
-                classified_pointcloud['geoid_corr_h'][classified_pointcloud['classifications'] == 41.0],
+    plt.plot(classified_pointcloud['lat_ph'][classified_pointcloud['classifications'] == 41.0],
+                classified_pointcloud['ortho_h'][classified_pointcloud['classifications'] == 41.0],
                 'o', color='blue', label='Other', markersize=5, zorder=5)
     
-    plt.plot(classified_pointcloud['latitude'][classified_pointcloud['classifications'] == 40.0],
-                classified_pointcloud['geoid_corr_h'][classified_pointcloud['classifications'] == 40.0],
+    plt.plot(classified_pointcloud['lat_ph'][classified_pointcloud['classifications'] == 40.0],
+                classified_pointcloud['ortho_h'][classified_pointcloud['classifications'] == 40.0],
                 'o', color='red', label='Other', markersize=5, zorder=5)
 
 
@@ -291,9 +288,9 @@ def main(args):
 
     point_cloud = point_cloud.rename(columns={'manual_label': 'class_ph',
                                               'ph_index': 'index_ph',
-                                              'lat_ph': 'latitude',
-                                              'lon_ph': 'longitude',
-                                              'geoid_corrected_h': 'geoid_corr_h'})
+                                              'lat_ph': 'lat_ph',
+                                              'lon_ph': 'lon_ph',
+                                              'geoid_corrected_h': 'ortho_h'})
 
     # Start Bathymetry Classification
     c_shelph_results = c_shelph_classification(copy.deepcopy(point_cloud), surface_buffer=-0.5,
@@ -318,9 +315,6 @@ if __name__=="__main__":
 
     import argparse
     import sys
-    import numpy as np
-    import traceback
-    import pandas as pd
 
     parser = argparse.ArgumentParser()
 
